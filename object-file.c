@@ -2463,12 +2463,16 @@ struct oid_array *odb_loose_cache(struct object_directory *odb,
 {
 	int subdir_nr = oid->hash[0];
 	struct strbuf buf = STRBUF_INIT;
+	size_t BM_SIZE = sizeof(odb->loose_objects_subdir_seen[0]) * CHAR_BIT;
+	uint32_t *bitmap;
+	uint32_t bit = 1 << (subdir_nr % BM_SIZE);
 
 	if (subdir_nr < 0 ||
-	    subdir_nr >= ARRAY_SIZE(odb->loose_objects_subdir_seen))
+	    subdir_nr >= ARRAY_SIZE(odb->loose_objects_subdir_seen) * BM_SIZE)
 		BUG("subdir_nr out of range");
 
-	if (odb->loose_objects_subdir_seen[subdir_nr])
+	bitmap = &odb->loose_objects_subdir_seen[subdir_nr / BM_SIZE];
+	if (*bitmap & bit)
 		return &odb->loose_objects_cache[subdir_nr];
 
 	strbuf_addstr(&buf, odb->path);
@@ -2476,7 +2480,7 @@ struct oid_array *odb_loose_cache(struct object_directory *odb,
 				    append_loose_object,
 				    NULL, NULL,
 				    &odb->loose_objects_cache[subdir_nr]);
-	odb->loose_objects_subdir_seen[subdir_nr] = 1;
+	*bitmap |= bit;
 	strbuf_release(&buf);
 	return &odb->loose_objects_cache[subdir_nr];
 }
